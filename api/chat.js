@@ -1,4 +1,3 @@
-// HablaYa! API endpoint for handling chat with OpenAI (Edge-Compatible)
 export const config = {
   runtime: 'edge',
 };
@@ -46,7 +45,7 @@ export default async function handler(req) {
       ...messages
     ];
 
-    // Call OpenAI API directly from the Edge Function
+    // Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
