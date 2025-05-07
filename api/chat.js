@@ -21,26 +21,19 @@ export default async function handler(req) {
       });
     }
 
-    // Prepare conversation history with system prompt
+    // Prepare conversation history
     const conversationHistory = [
       {
         role: 'system',
-        content: `You are HablaYa!, a friendly and patient AI English tutor. Your purpose is to help users practice and improve their English speaking skills through natural conversation.
-
+        content: `You are HablaYa!, a friendly AI English tutor. Help users practice English conversation naturally.
         Guidelines:
-        1. Respond in clear, neutral English suitable for language learners.
-        2. Keep responses concise but natural (2-3 sentences typically).
-        3. If the user makes grammatical or vocabulary mistakes:
-           - First, respond naturally to continue the conversation flow
-           - Then politely point out the mistake and provide the correct version
-           - Explain simply if needed
-        4. Adapt to the user's apparent proficiency level.
-        5. Be encouraging and positive.
-        6. Occasionally ask follow-up questions to keep the conversation going.
-        7. Focus on practical, everyday English usage.
-        
-        Current time: ${new Date().toLocaleString()}
-        `
+        1. Respond in clear, neutral English (2-3 sentences)
+        2. Gently correct mistakes after responding
+        3. Adapt to the user's proficiency level
+        4. Be encouraging and positive
+        5. Ask follow-up questions
+        6. Focus on practical English usage
+        Current time: ${new Date().toLocaleString()}`
       },
       ...messages
     ];
@@ -63,7 +56,8 @@ export default async function handler(req) {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API request failed with status ${response.status}`);
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error?.message || 'Chat completion failed');
     }
 
     const data = await response.json();
@@ -78,10 +72,10 @@ export default async function handler(req) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in chat API:', error);
+    console.error('Chat Error:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'An error occurred while processing your request',
+        error: 'Failed to generate response',
         details: error.message 
       }), 
       {
