@@ -647,3 +647,41 @@ body {
     font-size: 1rem;
   }
 }
+
+.voice-controls {
+    padding: 0.8rem 1rem;
+    background: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.voice-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.voice-selector label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.voice-select {
+    padding: 0.5rem 0.8rem;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: var(--card-color);
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.voice-select:hover {
+    border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .voice-select {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--card-color);
+}
