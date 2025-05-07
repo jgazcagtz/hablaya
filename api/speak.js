@@ -2,6 +2,8 @@ export const config = {
   runtime: 'edge',
 };
 
+const validVoices = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]);
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -11,8 +13,9 @@ export default async function handler(req) {
   }
 
   try {
-    const { text } = await req.json();
+    const { text, voice = "nova" } = await req.json();
     
+    // Validate input
     if (!text || typeof text !== 'string') {
       return new Response(JSON.stringify({ error: 'Invalid text input' }), {
         status: 400,
@@ -20,7 +23,22 @@ export default async function handler(req) {
       });
     }
 
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    // Validate and select voice
+    const selectedVoice = validVoices.has(voice) ? voice : "nova";
+    const maxLength = 4096; // OpenAI TTS character limit
+    
+    if (text.length > maxLength) {
+      return new Response(JSON.stringify({ 
+        error: `Text too long (max ${maxLength} characters)`,
+        details: `Received ${text.length} characters`
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Call OpenAI TTS API
+    const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -28,33 +46,32 @@ export default async function handler(req) {
       },
       body: JSON.stringify({
         model: "tts-1",
-        voice: "nova", // Can be "alloy", "echo", "fable", "onyx", "nova", or "shimmer"
+        voice: selectedVoice,
         input: text,
+        response_format: "mp3"
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI TTS request failed with status ${response.status}`);
+    if (!ttsResponse.ok) {
+      const error = await ttsResponse.json().catch(() => ({}));
+      throw new Error(error.error?.message || 'TTS generation failed');
     }
 
-    // Get the audio data as a blob
-    const audioBlob = await response.blob();
-
-    // Convert blob to array buffer
-    const audioArrayBuffer = await audioBlob.arrayBuffer();
-
-    // Create a new response with the audio data
-    return new Response(audioArrayBuffer, {
+    // Stream the audio response directly
+    return new Response(ttsResponse.body, {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
+        'Cache-Control': 'no-store, max-age=0',
+        'X-Voice-Used': selectedVoice
       },
     });
+
   } catch (error) {
-    console.error('Error in TTS API:', error);
+    console.error('TTS Error:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'An error occurred while generating speech',
+        error: 'Failed to generate speech',
         details: error.message 
       }), 
       {
