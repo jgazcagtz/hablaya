@@ -1,22 +1,25 @@
-// HablaYa! API endpoint for handling chat with OpenAI
-import OpenAI from 'openai';
+// HablaYa! API endpoint for handling chat with OpenAI (Edge-Compatible)
+export const config = {
+  runtime: 'edge',
+};
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-export default async function handler(req, res) {
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
-    const { messages, model = 'gpt-4-turbo' } = req.body;
+    const { messages, model = 'gpt-4-turbo' } = await req.json();
 
     // Validate input
     if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: 'Invalid messages array' });
+      return new Response(JSON.stringify({ error: 'Invalid messages array' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Prepare conversation history with system prompt
@@ -43,32 +46,49 @@ export default async function handler(req, res) {
       ...messages
     ];
 
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model,
-      messages: conversationHistory,
-      temperature: 0.7,
-      max_tokens: 150,
-      frequency_penalty: 0.5,
-      presence_penalty: 0.5
+    // Call OpenAI API directly from the Edge Function
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: conversationHistory,
+        temperature: 0.7,
+        max_tokens: 150,
+        frequency_penalty: 0.5,
+        presence_penalty: 0.5
+      })
     });
 
-    const aiMessage = completion.choices[0]?.message?.content;
+    if (!response.ok) {
+      throw new Error(`OpenAI API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const aiMessage = data.choices[0]?.message?.content;
 
     if (!aiMessage) {
       throw new Error('No response from AI');
     }
 
-    return res.status(200).json({ message: aiMessage });
+    return new Response(JSON.stringify({ message: aiMessage }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error in chat API:', error);
-    return res.status(500).json({ 
-      error: 'An error occurred while processing your request',
-      details: error.message 
-    });
+    return new Response(
+      JSON.stringify({ 
+        error: 'An error occurred while processing your request',
+        details: error.message 
+      }), 
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
-
-export const config = {
-  runtime: 'edge', // Specifies this is an Edge Function
-};
