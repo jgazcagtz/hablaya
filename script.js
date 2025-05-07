@@ -7,6 +7,7 @@ class HablaYaApp {
         this.micButton = document.getElementById('mic-button');
         this.micIcon = document.getElementById('mic-icon');
         this.themeToggle = document.getElementById('theme-toggle');
+        this.voiceSelect = document.getElementById('voice-select');
         
         // Speech recognition
         this.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -146,37 +147,33 @@ class HablaYaApp {
     
     async speakResponse(text) {
         try {
+            const voice = this.voiceSelect ? this.voiceSelect.value : 'nova';
             const response = await fetch('/api/speak', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ text })
+                body: JSON.stringify({ 
+                    text,
+                    voice 
+                })
             });
 
-            if (!response.ok) throw new Error('TTS request failed');
-            
+            if (!response.ok) {
+                throw new Error('TTS request failed');
+            }
+
             const audioBlob = await response.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
+            
+            audio.onended = () => URL.revokeObjectURL(audioUrl);
             audio.play();
+            
         } catch (error) {
             console.error('Error with OpenAI TTS:', error);
-            this.fallbackSpeechSynthesis(text);
+            this.addSystemMessage('Voice feature is currently unavailable. Please check your connection.');
         }
-    }
-
-    fallbackSpeechSynthesis(text) {
-        if (!window.speechSynthesis) {
-            console.warn('Browser speech synthesis not available');
-            return;
-        }
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        window.speechSynthesis.speak(utterance);
     }
     
     addMessage(sender, content) {
@@ -269,7 +266,6 @@ class HablaYaApp {
     }
 }
 
-// Initialize the app when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
     const app = new HablaYaApp();
     app.loadThemePreference();
