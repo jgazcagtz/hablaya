@@ -1,6 +1,3 @@
-// HablaYa! - AI English Speaking Assistant
-// Main application script handling UI interactions, speech recognition, and API calls
-
 class HablaYaApp {
     constructor() {
         // DOM Elements
@@ -11,9 +8,8 @@ class HablaYaApp {
         this.micIcon = document.getElementById('mic-icon');
         this.themeToggle = document.getElementById('theme-toggle');
         
-        // Speech recognition and synthesis
+        // Speech recognition
         this.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        this.speechSynthesis = window.speechSynthesis;
         this.recognition = null;
         this.isListening = false;
         
@@ -38,11 +34,6 @@ class HablaYaApp {
         if (!this.SpeechRecognition) {
             this.showUnsupportedMessage('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
             this.micButton.disabled = true;
-        }
-        
-        // Check for speech synthesis support
-        if (!this.speechSynthesis) {
-            this.showUnsupportedMessage('Speech synthesis is not supported in your browser. Text responses will still work.');
         }
         
         // Initialize speech recognition
@@ -100,24 +91,14 @@ class HablaYaApp {
     }
     
     async handleUserMessage(message) {
-        // Add user message to chat
         this.addMessage('user', message);
-        
-        // Show typing indicator
         this.showTypingIndicator();
         
         try {
-            // Call API to get AI response
             const aiResponse = await this.getAIResponse(message);
-            
-            // Remove typing indicator
             this.removeTypingIndicator();
-            
-            // Add AI response to chat
             this.addMessage('ai', aiResponse);
-            
-            // Speak the response
-            this.speakResponse(aiResponse);
+            await this.speakResponse(aiResponse);
         } catch (error) {
             console.error('Error getting AI response:', error);
             this.removeTypingIndicator();
@@ -126,7 +107,6 @@ class HablaYaApp {
     }
     
     async getAIResponse(message) {
-        // Add user message to conversation history
         this.conversationHistory.push({
             role: 'user',
             content: message,
@@ -141,7 +121,7 @@ class HablaYaApp {
                 },
                 body: JSON.stringify({
                     messages: this.conversationHistory,
-                    model: 'gpt-4-turbo' // or the latest model you're using
+                    model: 'gpt-4-turbo'
                 })
             });
             
@@ -151,7 +131,6 @@ class HablaYaApp {
             
             const data = await response.json();
             
-            // Add AI response to conversation history
             this.conversationHistory.push({
                 role: 'assistant',
                 content: data.message,
@@ -163,6 +142,41 @@ class HablaYaApp {
             console.error('Error fetching AI response:', error);
             throw error;
         }
+    }
+    
+    async speakResponse(text) {
+        try {
+            const response = await fetch('/api/speak', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text })
+            });
+
+            if (!response.ok) throw new Error('TTS request failed');
+            
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+        } catch (error) {
+            console.error('Error with OpenAI TTS:', error);
+            this.fallbackSpeechSynthesis(text);
+        }
+    }
+
+    fallbackSpeechSynthesis(text) {
+        if (!window.speechSynthesis) {
+            console.warn('Browser speech synthesis not available');
+            return;
+        }
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        window.speechSynthesis.speak(utterance);
     }
     
     addMessage(sender, content) {
@@ -182,11 +196,8 @@ class HablaYaApp {
         `;
         
         this.chatWindow.appendChild(messageElement);
-        
-        // Scroll to bottom
         this.chatWindow.scrollTop = this.chatWindow.scrollHeight;
         
-        // Add click event for speak buttons
         if (sender === 'ai') {
             const speakButton = messageElement.querySelector('.speak-button');
             speakButton.addEventListener('click', () => this.speakResponse(content));
@@ -206,7 +217,6 @@ class HablaYaApp {
     }
     
     showTypingIndicator() {
-        // Remove any existing typing indicator
         this.removeTypingIndicator();
         
         const typingElement = document.createElement('div');
@@ -229,42 +239,14 @@ class HablaYaApp {
         }
     }
     
-    speakResponse(text) {
-        if (!this.speechSynthesis) return;
-        
-        // Cancel any ongoing speech
-        this.speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        
-        // Select a voice that sounds good for English tutoring
-        const voices = this.speechSynthesis.getVoices();
-        const preferredVoices = voices.filter(voice => 
-            voice.lang.includes('en') && 
-            !voice.name.includes('Microsoft') && 
-            !voice.name.includes('Google')
-        );
-        
-        if (preferredVoices.length > 0) {
-            utterance.voice = preferredVoices[0];
-        }
-        
-        this.speechSynthesis.speak(utterance);
-    }
-    
     toggleTheme() {
         const currentTheme = document.documentElement.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', newTheme);
         
-        // Update the theme icon
         const themeIcon = this.themeToggle.querySelector('.theme-icon');
         themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         
-        // Save preference to localStorage
         localStorage.setItem('hablaya-theme', newTheme);
     }
     
@@ -277,7 +259,6 @@ class HablaYaApp {
         this.chatWindow.appendChild(unsupportedElement);
     }
     
-    // Load saved theme preference
     loadThemePreference() {
         const savedTheme = localStorage.getItem('hablaya-theme');
         if (savedTheme) {
@@ -292,11 +273,4 @@ class HablaYaApp {
 document.addEventListener('DOMContentLoaded', () => {
     const app = new HablaYaApp();
     app.loadThemePreference();
-    
-    // Load voices for speech synthesis (needed for some browsers)
-    if (window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = function() {
-            // Voices are now loaded
-        };
-    }
 });
