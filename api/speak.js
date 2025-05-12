@@ -15,7 +15,6 @@ export default async function handler(req) {
   try {
     const { text, voice = "nova" } = await req.json();
     
-    // Validate input
     if (!text || typeof text !== 'string') {
       return new Response(JSON.stringify({ error: 'Invalid text input' }), {
         status: 400,
@@ -23,9 +22,8 @@ export default async function handler(req) {
       });
     }
 
-    // Validate and select voice
     const selectedVoice = validVoices.has(voice) ? voice : "nova";
-    const maxLength = 4096; // OpenAI TTS character limit
+    const maxLength = 4096;
     
     if (text.length > maxLength) {
       return new Response(JSON.stringify({ 
@@ -37,7 +35,6 @@ export default async function handler(req) {
       });
     }
 
-    // Call OpenAI TTS API
     const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -57,7 +54,6 @@ export default async function handler(req) {
       throw new Error(error.error?.message || 'TTS generation failed');
     }
 
-    // Stream the audio response directly
     return new Response(ttsResponse.body, {
       status: 200,
       headers: {
