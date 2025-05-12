@@ -1,5 +1,6 @@
 class HablaYaApp {
     constructor() {
+        // DOM Elements
         this.chatWindow = document.getElementById('chat-window');
         this.textInput = document.getElementById('text-input');
         this.sendButton = document.getElementById('send-button');
@@ -8,42 +9,54 @@ class HablaYaApp {
         this.themeToggle = document.getElementById('theme-toggle');
         this.voiceSelect = document.getElementById('voice-select');
         
+        // Audio State
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.isRecording = false;
         this.audioContext = null;
         
+        // Speech Recognition
         this.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         this.recognition = null;
         this.isListening = false;
         this.hasMicPermission = false;
         this.browserSupportsRecording = false;
         
+        // App State
         this.conversationHistory = [];
         
         this.init();
     }
     
     init() {
+        // Check browser capabilities
         this.checkBrowserSupport();
+        
+        // Initialize event listeners
         this.setupEventListeners();
+        
+        // Initialize audio context on first interaction
         document.addEventListener('click', this.initAudioContext.bind(this), { once: true });
+        
+        // Load theme preference
         this.loadThemePreference();
     }
 
     checkBrowserSupport() {
+        // Check for MediaRecorder support
         this.browserSupportsRecording = !!(
             navigator.mediaDevices && 
             window.MediaRecorder &&
             (window.AudioContext || window.webkitAudioContext)
         );
         
+        // Show appropriate warnings
         if (!this.browserSupportsRecording) {
-            this.addSystemMessage('Your browser has limited voice support. Please use Chrome, Edge, or Firefox for full functionality.');
+            this.addSystemMessage('Voice transcription requires Chrome, Edge, or Firefox for best results.');
         }
         
         if (!this.SpeechRecognition) {
-            this.addSystemMessage('Speech recognition may be limited in this browser. For best results, use Chrome or Edge.');
+            this.addSystemMessage('Live speech recognition may be limited in this browser.');
         }
     }
 
@@ -56,6 +69,7 @@ class HablaYaApp {
         this.micButton.addEventListener('click', () => this.handleMicInteraction());
         this.themeToggle.addEventListener('click', () => this.toggleTheme());
         
+        // Initialize speech recognition if available
         if (this.SpeechRecognition) {
             this.initWebSpeechRecognition();
         }
@@ -72,11 +86,11 @@ class HablaYaApp {
             } else if (this.SpeechRecognition) {
                 this.toggleWebSpeechRecognition();
             } else {
-                this.addSystemMessage('Voice input not supported in this browser');
+                this.addSystemMessage('Please type your message or use a supported browser for voice input.');
             }
         } catch (error) {
             console.error('Mic interaction failed:', error);
-            this.addSystemMessage('Microphone access denied. Please enable permissions in your browser settings.');
+            this.addSystemMessage('Microphone access required. Please enable permissions in browser settings.');
         }
     }
 
@@ -90,8 +104,9 @@ class HablaYaApp {
             console.error('Microphone permission denied:', error);
             this.hasMicPermission = false;
             
+            // Show iOS-specific instructions
             if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                this.addSystemMessage('Please enable microphone access in Safari Settings > Websites > Microphone');
+                this.addSystemMessage('Enable microphone in Settings > Safari > Microphone');
             }
             
             throw error;
@@ -130,10 +145,17 @@ class HablaYaApp {
                 try {
                     const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
                     const text = await this.transcribeAudio(audioBlob);
-                    if (text) this.handleUserMessage(text);
+                    if (text) {
+                        const messageWithContext = {
+                            content: text,
+                            isVoiceInput: true,
+                            timestamp: new Date().toISOString()
+                        };
+                        this.handleUserMessage(messageWithContext);
+                    }
                 } catch (error) {
                     console.error('Transcription failed:', error);
-                    this.addSystemMessage('Could not process voice input. Please try again or type your message.');
+                    this.addSystemMessage('Voice input failed. Please try typing your message.');
                 }
             };
             
@@ -143,10 +165,9 @@ class HablaYaApp {
             
         } catch (error) {
             console.error('Recording failed:', error);
-            this.addSystemMessage('Could not start recording. Please check microphone permissions.');
+            this.addSystemMessage('Could not start recording. Please check permissions.');
             this.isRecording = false;
             this.updateMicButtonState();
-            throw error;
         }
     }
 
@@ -173,9 +194,11 @@ class HablaYaApp {
         this.showTypingIndicator();
         
         try {
+            // Try Whisper first
             const whisperText = await this.tryWhisperAPI(audioBlob);
             if (whisperText) return whisperText;
             
+            // Fallback to Web Speech if available
             if (this.SpeechRecognition) {
                 return await this.fallbackToWebSpeech();
             }
@@ -184,7 +207,7 @@ class HablaYaApp {
             
         } catch (error) {
             console.error('Transcription error:', error);
-            this.addSystemMessage('Could not transcribe audio. Please try typing instead.');
+            this.addSystemMessage('Voice transcription unavailable. Please try typing.');
             return null;
         } finally {
             this.removeTypingIndicator();
@@ -203,7 +226,7 @@ class HablaYaApp {
             });
             
             if (!response.ok) {
-                throw new Error(`API error: ${response.status}`);
+                throw new Error(`Whisper API error: ${response.status}`);
             }
             
             const data = await response.json();
@@ -263,13 +286,18 @@ class HablaYaApp {
     handleSendMessage() {
         const message = this.textInput.value.trim();
         if (message) {
-            this.handleUserMessage(message);
+            const messageWithContext = {
+                content: message,
+                isVoiceInput: false,
+                timestamp: new Date().toISOString()
+            };
+            this.handleUserMessage(messageWithContext);
             this.textInput.value = '';
         }
     }
     
     async handleUserMessage(message) {
-        this.addMessage('user', message);
+        this.addMessage('user', message.content);
         this.showTypingIndicator();
         
         try {
@@ -280,19 +308,37 @@ class HablaYaApp {
         } catch (error) {
             console.error('Error getting AI response:', error);
             this.removeTypingIndicator();
-            this.addSystemMessage('Sorry, there was an error processing your request. Please try again.');
+            this.addSystemMessage('Error processing request. Please try again.');
         }
     }
     
-    async getAIResponse(message) {
+    async getAIResponse(userMessage) {
+        // Add context about voice capabilities
+        const systemMessage = {
+            role: 'system',
+            content: `You are HablaYa! - an AI English tutor with voice capabilities.
+            Current Features:
+            - Whisper API: ${this.browserSupportsRecording ? 'Active' : 'Unavailable'}
+            - Microphone: ${this.hasMicPermission ? 'Enabled' : 'Disabled'}
+            - Voice Input: ${userMessage.isVoiceInput ? 'Used' : 'Not used'}
+            
+            Important:
+            1. Acknowledge voice capabilities when asked
+            2. Provide pronunciation guides when requested
+            3. Current time: ${new Date().toLocaleString()}`
+        };
+
         if (this.conversationHistory.length > 5) {
             this.conversationHistory = this.conversationHistory.slice(-5);
         }
-        
+
         this.conversationHistory.push({
             role: 'user',
-            content: message,
-            timestamp: new Date().toISOString()
+            content: userMessage.content,
+            metadata: {
+                isVoiceInput: userMessage.isVoiceInput,
+                timestamp: userMessage.timestamp
+            }
         });
         
         try {
@@ -302,7 +348,7 @@ class HablaYaApp {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    messages: this.conversationHistory,
+                    messages: [systemMessage, ...this.conversationHistory],
                     model: 'gpt-4-turbo'
                 })
             });
@@ -358,7 +404,7 @@ class HablaYaApp {
             };
             
         } catch (error) {
-            console.error('Error with OpenAI TTS:', error);
+            console.error('Error with TTS:', error);
         }
     }
     
