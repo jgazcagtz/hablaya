@@ -13,7 +13,6 @@ export default async function handler(req) {
   try {
     const { messages, model = 'gpt-4-turbo' } = await req.json();
 
-    // Validate input
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: 'Invalid messages array' }), {
         status: 400,
@@ -21,7 +20,6 @@ export default async function handler(req) {
       });
     }
 
-    // Prepare conversation history
     const conversationHistory = [
       {
         role: 'system',
@@ -38,7 +36,6 @@ export default async function handler(req) {
       ...messages
     ];
 
-    // Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
