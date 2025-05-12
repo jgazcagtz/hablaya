@@ -16,6 +16,8 @@ class HablaYaApp {
         this.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         this.recognition = null;
         this.isListening = false;
+        this.hasMicPermission = false;
+        this.browserSupportsRecording = false;
         
         this.conversationHistory = [];
         
@@ -23,19 +25,85 @@ class HablaYaApp {
     }
     
     init() {
+        this.checkBrowserSupport();
+        this.setupEventListeners();
+        document.addEventListener('click', this.initAudioContext.bind(this), { once: true });
+        this.loadThemePreference();
+    }
+
+    checkBrowserSupport() {
+        this.browserSupportsRecording = !!(
+            navigator.mediaDevices && 
+            window.MediaRecorder &&
+            (window.AudioContext || window.webkitAudioContext)
+        );
+        
+        if (!this.browserSupportsRecording) {
+            this.addSystemMessage('Your browser has limited voice support. Please use Chrome, Edge, or Firefox for full functionality.');
+        }
+        
+        if (!this.SpeechRecognition) {
+            this.addSystemMessage('Speech recognition may be limited in this browser. For best results, use Chrome or Edge.');
+        }
+    }
+
+    setupEventListeners() {
         this.sendButton.addEventListener('click', () => this.handleSendMessage());
         this.textInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleSendMessage();
         });
         
-        this.micButton.addEventListener('click', () => this.toggleRecording());
+        this.micButton.addEventListener('click', () => this.handleMicInteraction());
         this.themeToggle.addEventListener('click', () => this.toggleTheme());
         
         if (this.SpeechRecognition) {
             this.initWebSpeechRecognition();
         }
-        
-        document.addEventListener('click', this.initAudioContext.bind(this), { once: true });
+    }
+
+    async handleMicInteraction() {
+        try {
+            if (!this.hasMicPermission) {
+                await this.requestMicrophonePermission();
+            }
+            
+            if (this.browserSupportsRecording) {
+                await this.toggleRecording();
+            } else if (this.SpeechRecognition) {
+                this.toggleWebSpeechRecognition();
+            } else {
+                this.addSystemMessage('Voice input not supported in this browser');
+            }
+        } catch (error) {
+            console.error('Mic interaction failed:', error);
+            this.addSystemMessage('Microphone access denied. Please enable permissions in your browser settings.');
+        }
+    }
+
+    async requestMicrophonePermission() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => track.stop());
+            this.hasMicPermission = true;
+            return true;
+        } catch (error) {
+            console.error('Microphone permission denied:', error);
+            this.hasMicPermission = false;
+            
+            if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                this.addSystemMessage('Please enable microphone access in Safari Settings > Websites > Microphone');
+            }
+            
+            throw error;
+        }
+    }
+
+    initAudioContext() {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (error) {
+            console.error('AudioContext initialization failed:', error);
+        }
     }
 
     async toggleRecording() {
@@ -49,43 +117,81 @@ class HablaYaApp {
     async startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(stream);
+            this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
             this.audioChunks = [];
             
             this.mediaRecorder.ondataavailable = (e) => {
-                this.audioChunks.push(e.data);
+                if (e.data.size > 0) {
+                    this.audioChunks.push(e.data);
+                }
             };
             
             this.mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                const text = await this.transcribeAudioWithWhisper(audioBlob);
-                if (text) this.handleUserMessage(text);
+                try {
+                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                    const text = await this.transcribeAudio(audioBlob);
+                    if (text) this.handleUserMessage(text);
+                } catch (error) {
+                    console.error('Transcription failed:', error);
+                    this.addSystemMessage('Could not process voice input. Please try again or type your message.');
+                }
             };
             
             this.mediaRecorder.start(100);
             this.isRecording = true;
-            this.micButton.classList.add('listening');
-            this.micIcon.innerHTML = `<path fill="currentColor" d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"></path>`;
+            this.updateMicButtonState();
             
         } catch (error) {
             console.error('Recording failed:', error);
-            this.addSystemMessage('Microphone access denied. Please enable permissions.');
+            this.addSystemMessage('Could not start recording. Please check microphone permissions.');
+            this.isRecording = false;
+            this.updateMicButtonState();
+            throw error;
         }
     }
 
     stopRecording() {
-        if (this.mediaRecorder) {
+        if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
             this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
             this.isRecording = false;
+            this.updateMicButtonState();
+        }
+    }
+
+    updateMicButtonState() {
+        if (this.isRecording) {
+            this.micButton.classList.add('listening');
+            this.micIcon.innerHTML = `<path fill="currentColor" d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"></path>`;
+        } else {
             this.micButton.classList.remove('listening');
             this.micIcon.innerHTML = `<path fill="currentColor" d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zm7 9a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V20H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2h-3v-2.08A7 7 0 0 0 19 11z"></path>`;
         }
     }
 
-    async transcribeAudioWithWhisper(audioBlob) {
+    async transcribeAudio(audioBlob) {
         this.showTypingIndicator();
         
+        try {
+            const whisperText = await this.tryWhisperAPI(audioBlob);
+            if (whisperText) return whisperText;
+            
+            if (this.SpeechRecognition) {
+                return await this.fallbackToWebSpeech();
+            }
+            
+            throw new Error('No transcription methods available');
+            
+        } catch (error) {
+            console.error('Transcription error:', error);
+            this.addSystemMessage('Could not transcribe audio. Please try typing instead.');
+            return null;
+        } finally {
+            this.removeTypingIndicator();
+        }
+    }
+
+    async tryWhisperAPI(audioBlob) {
         try {
             const formData = new FormData();
             formData.append('file', audioBlob, 'recording.webm');
@@ -96,41 +202,62 @@ class HablaYaApp {
                 body: formData
             });
             
-            if (!response.ok) throw new Error('Transcription failed');
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
             
             const data = await response.json();
             return data.text;
-            
         } catch (error) {
-            console.error('Whisper error:', error);
-            this.addSystemMessage('Transcription service unavailable. Using fallback.');
-            return this.fallbackToWebSpeech();
-        } finally {
-            this.removeTypingIndicator();
+            console.error('Whisper API failed:', error);
+            return null;
         }
     }
 
     async fallbackToWebSpeech() {
-        if (!this.SpeechRecognition) return null;
-        
         return new Promise((resolve) => {
-            this.recognition.onresult = (event) => {
-                resolve(event.results[0][0].transcript);
+            if (!this.SpeechRecognition) {
+                resolve(null);
+                return;
+            }
+            
+            const recognition = new this.SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                resolve(transcript);
             };
             
-            this.recognition.onerror = () => {
+            recognition.onerror = (event) => {
+                console.error('Web Speech error:', event.error);
                 resolve(null);
             };
             
-            this.recognition.start();
+            recognition.onend = () => {
+                if (!recognition.result) resolve(null);
+            };
+            
+            recognition.start();
         });
     }
 
-    initWebSpeechRecognition() {
-        this.recognition = new this.SpeechRecognition();
-        this.recognition.continuous = false;
-        this.recognition.interimResults = false;
-        this.recognition.lang = 'en-US';
+    toggleWebSpeechRecognition() {
+        if (this.isListening) {
+            this.recognition.stop();
+            this.isListening = false;
+        } else {
+            try {
+                this.recognition.start();
+                this.isListening = true;
+            } catch (error) {
+                console.error('Web Speech start failed:', error);
+                this.addSystemMessage('Could not start voice recognition. Please try again.');
+            }
+        }
+        this.updateMicButtonState();
     }
 
     handleSendMessage() {
@@ -158,6 +285,10 @@ class HablaYaApp {
     }
     
     async getAIResponse(message) {
+        if (this.conversationHistory.length > 5) {
+            this.conversationHistory = this.conversationHistory.slice(-5);
+        }
+        
         this.conversationHistory.push({
             role: 'user',
             content: message,
@@ -314,5 +445,4 @@ class HablaYaApp {
 
 document.addEventListener('DOMContentLoaded', () => {
     const app = new HablaYaApp();
-    app.loadThemePreference();
 });
