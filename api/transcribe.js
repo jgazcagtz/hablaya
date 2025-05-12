@@ -38,8 +38,7 @@ export default async function handler(req) {
     return new Response(JSON.stringify({ text: result.text }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
-    };
-
+    });
   } catch (error) {
     console.error('Transcription error:', error);
     return new Response(
