@@ -11,6 +11,18 @@ export default async function handler(req) {
   }
 
   try {
+    // Check if API key is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key not found');
+      return new Response(JSON.stringify({ 
+        error: 'OpenAI API key not configured',
+        details: 'Please set OPENAI_API_KEY environment variable'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const formData = await req.formData();
     const file = formData.get('file');
     const language = formData.get('language') || 'en';
@@ -23,21 +35,52 @@ export default async function handler(req) {
       });
     }
 
+    // Validate file
+    if (file.size === 0) {
+      return new Response(JSON.stringify({ error: 'Audio file is empty' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Processing audio file:', {
+      size: file.size,
+      type: file.type,
+      name: file.name
+    });
+
+    // Create a new FormData object for OpenAI API
+    const openAIFormData = new FormData();
+    openAIFormData.append('file', file);
+    openAIFormData.append('model', 'whisper-1');
+    openAIFormData.append('language', language);
+    openAIFormData.append('prompt', prompt);
+
+    console.log('Sending to OpenAI API...');
+
     // Enhanced Whisper API call with language learning context
     const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
       },
-      body: formData
+      body: openAIFormData
     });
 
+    console.log('OpenAI response status:', whisperResponse.status);
+
     if (!whisperResponse.ok) {
-      const error = await whisperResponse.json();
-      throw new Error(error.error?.message || 'Transcription failed');
+      const errorData = await whisperResponse.json().catch(() => ({}));
+      console.error('OpenAI API Error:', errorData);
+      throw new Error(errorData.error?.message || `OpenAI API error: ${whisperResponse.status}`);
     }
 
     const result = await whisperResponse.json();
+    console.log('OpenAI transcription result:', result);
+    
+    if (!result.text) {
+      throw new Error('No transcription text received from OpenAI');
+    }
     
     // Enhanced response with language learning metadata
     const enhancedResult = {
@@ -48,6 +91,8 @@ export default async function handler(req) {
       learning_suggestions: generateLearningSuggestions(result.text),
       timestamp: new Date().toISOString()
     };
+
+    console.log('Returning enhanced result:', enhancedResult);
 
     return new Response(JSON.stringify(enhancedResult), {
       status: 200,
