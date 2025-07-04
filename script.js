@@ -182,13 +182,26 @@ class HablaYaApp {
             this.mediaRecorder.onstop = async () => {
                 try {
                     const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                    
+                    // Check if blob is valid
+                    if (audioBlob.size === 0) {
+                        this.addSystemMessage('No audio recorded. Please try again.');
+                        return;
+                    }
+                    
+                    this.addSystemMessage('Processing your voice input...');
                     const transcription = await this.transcribeAudio(audioBlob);
+                    
                     if (transcription && transcription.text) {
                         this.handleVoiceInput(transcription);
+                    } else {
+                        // Fallback: try to use browser's speech recognition
+                        this.addSystemMessage('Transcription failed. You can still type your message below.');
+                        this.tryBrowserSpeechRecognition();
                     }
                 } catch (error) {
-                    console.error('Transcription failed:', error);
-                    this.addSystemMessage('Voice input failed. Please try again.');
+                    console.error('Recording processing failed:', error);
+                    this.addSystemMessage('Voice input failed. You can still type your message below.');
                 }
             };
             
@@ -198,7 +211,7 @@ class HablaYaApp {
             
         } catch (error) {
             console.error('Recording failed:', error);
-            this.addSystemMessage('Could not start recording. Please check permissions.');
+            this.addSystemMessage('Could not start recording. Please check permissions or try typing instead.');
             this.isRecording = false;
             this.updateMicButtonState();
         }
@@ -248,26 +261,67 @@ class HablaYaApp {
         this.showTypingIndicator();
         
         try {
+            // Validate audio blob
+            if (!audioBlob || audioBlob.size === 0) {
+                throw new Error('Invalid audio data');
+            }
+            
+            console.log('Audio blob size:', audioBlob.size, 'bytes');
+            
             const formData = new FormData();
             formData.append('file', audioBlob, 'recording.webm');
             formData.append('language', 'en');
             formData.append('prompt', 'This is an English language learning session. Please transcribe clearly and provide pronunciation feedback.');
+            
+            console.log('Sending transcription request...');
             
             const response = await fetch('/api/transcribe', {
                 method: 'POST',
                 body: formData
             });
             
+            console.log('Transcription response status:', response.status);
+            
             if (!response.ok) {
-                throw new Error(`Transcription failed: ${response.status}`);
+                const errorText = await response.text();
+                console.error('Transcription error response:', errorText);
+                
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch (e) {
+                    errorData = { error: 'Unknown error', details: errorText };
+                }
+                
+                throw new Error(`Transcription failed: ${response.status} - ${errorData.error || errorData.details || 'Unknown error'}`);
             }
             
             const result = await response.json();
+            console.log('Transcription result:', result);
+            
+            if (!result.text) {
+                throw new Error('No transcription text received');
+            }
+            
             return result;
             
         } catch (error) {
             console.error('Transcription error:', error);
-            this.addSystemMessage('Voice transcription unavailable. Please try typing.');
+            
+            // Provide user-friendly error message
+            let userMessage = 'Voice transcription unavailable. Please try typing.';
+            
+            if (error.message.includes('401') || error.message.includes('403')) {
+                userMessage = 'API key issue. Please check your OpenAI API configuration.';
+            } else if (error.message.includes('413')) {
+                userMessage = 'Audio file too large. Please try a shorter recording.';
+            } else if (error.message.includes('429')) {
+                userMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+            } else if (error.message.includes('500')) {
+                userMessage = 'Server error. Please try again in a moment.';
+            }
+            
+            this.addSystemMessage(userMessage);
             return null;
         } finally {
             this.removeTypingIndicator();
@@ -275,6 +329,12 @@ class HablaYaApp {
     }
 
     handleVoiceInput(transcription) {
+        if (!transcription || !transcription.text) {
+            console.warn('No transcription text available');
+            this.addSystemMessage('Voice input failed. You can still type your message below.');
+            return;
+        }
+        
         const message = {
             content: transcription.text,
             isVoiceInput: true,
@@ -290,6 +350,9 @@ class HablaYaApp {
         if (transcription.pronunciation_analysis) {
             this.addPronunciationFeedback(transcription.pronunciation_analysis);
         }
+        
+        // Show success feedback
+        this.addSystemMessage(`Voice input successful: "${transcription.text}"`);
     }
 
     handleSendMessage() {
@@ -707,6 +770,53 @@ class HablaYaApp {
         }
         if (this.mediaRecorder && this.isRecording) {
             this.stopRecording();
+        }
+    }
+
+    initWebSpeechRecognition() {
+        if (!this.SpeechRecognition) {
+            console.warn('Speech recognition not supported in this browser');
+            return;
+        }
+        
+        this.recognition = new this.SpeechRecognition();
+        this.recognition.continuous = false;
+        this.recognition.interimResults = false;
+        this.recognition.lang = 'en-US';
+        
+        this.recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            if (transcript) {
+                const message = {
+                    content: transcript,
+                    isVoiceInput: true,
+                    timestamp: new Date().toISOString()
+                };
+                this.handleUserMessage(message);
+                this.updateSessionStats(transcript);
+            }
+        };
+        
+        this.recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            this.addSystemMessage('Speech recognition failed. Please try typing.');
+        };
+        
+        this.recognition.onend = () => {
+            this.isListening = false;
+        };
+    }
+    
+    tryBrowserSpeechRecognition() {
+        if (this.recognition && !this.isListening) {
+            try {
+                this.recognition.start();
+                this.isListening = true;
+                this.addSystemMessage('Using browser speech recognition...');
+            } catch (error) {
+                console.error('Browser speech recognition failed:', error);
+                this.addSystemMessage('Speech recognition unavailable. Please type your message.');
+            }
         }
     }
 }
