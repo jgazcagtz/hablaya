@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366F1">
+    <title>HablaYa! | Advanced AI English Tutor</title>
+    <meta name="description" content="Master English with AI-powered conversation practice, pronunciation feedback, and personalized learning">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Animated background -->
+        <div class="background-animation">
+            <div class="floating-shapes">
+                <div class="shape shape-1"></div>
+                <div class="shape shape-2"></div>
+                <div class="shape shape-3"></div>
+                <div class="shape shape-4"></div>
+            </div>
+        </div>
+        
+        <!-- Header with advanced controls -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-container">
+                    <div class="logo-icon">🎯</div>
+                    <div class="logo-text">
+                        <h1>HablaYa!</h1>
+                        <span class="tagline">Advanced AI English Tutor</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <div class="learning-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="session-time">00:00</span>
+                        <span class="stat-label">Session</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="words-practiced">0</span>
+                        <span class="stat-label">Words</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="accuracy-score">--</span>
+                        <span class="stat-label">Accuracy</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button id="settings-button" class="icon-button" aria-label="Settings">
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.22-.08-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98 0 .33.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65z"/>
+                    </svg>
+                </button>
+                <button id="theme-toggle" class="icon-button" aria-label="Toggle theme">
+                    <svg class="theme-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main chat interface -->
+        <main class="chat-interface">
+            <!-- Learning mode selector -->
+            <div class="learning-mode-selector">
+                <div class="mode-tabs">
+                    <button class="mode-tab active" data-mode="conversation">
+                        <span class="mode-icon">💬</span>
+                        <span class="mode-label">Conversation</span>
+                    </button>
+                    <button class="mode-tab" data-mode="pronunciation">
+                        <span class="mode-icon">🎤</span>
+                        <span class="mode-label">Pronunciation</span>
+                    </button>
+                    <button class="mode-tab" data-mode="grammar">
+                        <span class="mode-icon">📝</span>
+                        <span class="mode-label">Grammar</span>
+                    </button>
+                    <button class="mode-tab" data-mode="vocabulary">
+                        <span class="mode-icon">📚</span>
+                        <span class="mode-label">Vocabulary</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat window -->
+            <div class="chat-window-container">
+                <div id="chat-window" class="chat-window">
+                    <!-- Welcome message -->
+                    <div class="message ai-message welcome-message animate__animated animate__fadeIn">
+                        <div class="message-avatar">
+                            <div class="avatar-icon">🎯</div>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="sender-name">HablaYa! AI Tutor</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-text">
+                                <p>Hi there! I'm your AI English tutor, and I'm excited to help you practice English! Whether you want to chat, work on pronunciation, improve your grammar, or learn new vocabulary, I'm here to support you.</p>
+                                <p>Just start talking or typing - I'll keep our conversation natural and only give you helpful tips when needed. What would you like to practice today?</p>
+                            </div>
+                            <div class="message-actions">
+                                <button class="action-button speak-button" aria-label="Listen to message">
+                                    <svg viewBox="0 0 24 24" width="16" height="16">
+                                        <path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                                    </svg>
+                                    Listen
+                                </button>
+                                <button class="action-button practice-button" aria-label="Start practice">
+                                    <svg viewBox="0 0 24 24" width="16" height="16">
+                                        <path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Start Practice
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice and input controls -->
+            <div class="input-controls">
+                <div class="voice-controls">
+                    <div class="voice-settings">
+                        <select id="voice-select" class="voice-select">
+                            <option value="nova">Nova (Recommended)</option>
+                            <option value="shimmer">Shimmer</option>
+                            <option value="echo">Echo</option>
+                            <option value="alloy">Alloy</option>
+                            <option value="fable">Fable</option>
+                            <option value="onyx">Onyx</option>
+                        </select>
+                        <div class="speed-control">
+                            <label for="speed-slider">Speed:</label>
+                            <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1" class="speed-slider">
+                            <span id="speed-value">1.0x</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-container">
+                        <div class="input-wrapper">
+                            <textarea 
+                                id="text-input" 
+                                placeholder="Type your message or start speaking..." 
+                                aria-label="Type your message"
+                                class="text-input"
+                                rows="1"
+                            ></textarea>
+                            <div class="input-actions">
+                                <button id="emoji-button" class="action-icon" aria-label="Add emoji">
+                                    <svg viewBox="0 0 24 24" width="18" height="18">
+                                        <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                    </svg>
+                                </button>
+                                <button id="send-button" class="send-button" aria-label="Send message">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" class="send-icon">
+                                        <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="mic-button" class="mic-button" aria-label="Start voice recording">
+                        <div class="mic-icon-container">
+                            <svg id="mic-icon" viewBox="0 0 24 24" width="24" height="24" class="mic-svg">
+                                <path fill="currentColor" d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zm7 9a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V20H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2h-3v-2.08A7 7 0 0 0 19 11z"/>
+                            </svg>
+                            <div class="mic-wave"></div>
+                            <div class="mic-wave mic-wave-2"></div>
+                        </div>
+                        <span class="mic-label">Hold to speak</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Progress and feedback panel -->
+        <aside class="feedback-panel" id="feedback-panel">
+            <div class="panel-header">
+                <h3>Learning Progress</h3>
+                <button class="panel-close" id="panel-close">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="progress-section">
+                    <h4>Today's Progress</h4>
+                    <div class="progress-stats">
+                        <div class="progress-item">
+                            <span class="progress-label">Words Practiced</span>
+                            <span class="progress-value" id="today-words">0</span>
+                        </div>
+                        <div class="progress-item">
+                            <span class="progress-label">Accuracy</span>
+                            <span class="progress-value" id="today-accuracy">--</span>
+                        </div>
+                        <div class="progress-item">
+                            <span class="progress-label">Session Time</span>
+                            <span class="progress-value" id="today-time">00:00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="feedback-section">
+                    <h4>Recent Feedback</h4>
+                    <div id="feedback-list" class="feedback-list">
+                        <!-- Feedback items will be added here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Settings modal -->
+        <div class="modal-overlay" id="settings-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Settings</h3>
+                    <button class="modal-close" id="settings-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label for="user-level">Your English Level:</label>
+                        <select id="user-level" class="setting-select">
+                            <option value="beginner">Beginner</option>
+                            <option value="elementary">Elementary</option>
+                            <option value="intermediate" selected>Intermediate</option>
+                            <option value="upper-intermediate">Upper Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label for="learning-focus">Learning Focus:</label>
+                        <select id="learning-focus" class="setting-select">
+                            <option value="conversation" selected>Conversation</option>
+                            <option value="pronunciation">Pronunciation</option>
+                            <option value="grammar">Grammar</option>
+                            <option value="vocabulary">Vocabulary</option>
+                            <option value="business">Business English</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label for="feedback-level">Feedback Level:</label>
+                        <select id="feedback-level" class="setting-select">
+                            <option value="gentle">Gentle</option>
+                            <option value="moderate" selected>Moderate</option>
+                            <option value="detailed">Detailed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
